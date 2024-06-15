@@ -1,3 +1,7 @@
+<p align="center" style="background: #efeae7">
+  <img width="250" height="250" src="logo.jpeg" alt="Logo">
+</p>
+
 # Ember Addon V2 Scanner
 
 A CLI tool to scan your Ember project for addons that have a V2 version available.
