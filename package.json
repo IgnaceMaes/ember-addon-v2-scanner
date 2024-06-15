@@ -20,6 +20,9 @@
   "homepage": "https://github.com/IgnaceMaes/ember-addon-v2-scanner",
   "author": "Ignace Maes (https://ignacemaes.com/)",
   "license": "GPL-3",
+  "scripts": {
+    "release": "changeset publish"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.27.5",
     "prettier": "^3.3.2"
