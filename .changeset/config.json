@@ -1,6 +1,8 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.0.1/schema.json",
-  "changelog": "@changesets/cli/changelog",
+  "changelog": ["@changesets/changelog-github", {
+    "repo": "IgnaceMaes/ember-addon-v2-scanner"
+  }],
   "commit": false,
   "fixed": [],
   "linked": [],
