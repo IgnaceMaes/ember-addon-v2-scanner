@@ -4,8 +4,10 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import process from "node:process";
 import { execa } from "execa";
+import ora from "ora";
 
 const CWD = process.cwd();
+const DEBUG = process.env.DEBUG;
 
 async function readPackageJson() {
   let packageJson = path.join(CWD, "package.json");
@@ -16,20 +18,20 @@ async function readPackageJson() {
 
 async function getDeclaredDeps(json, includeDev = false) {
   let deps = [
-    ...Object.keys(json.dependencies || {}),
-    ...Object.keys(json.peerDependencies || {}),
+    ...Object.entries(json.dependencies || {}),
+    ...Object.entries(json.peerDependencies || {}),
   ];
 
   if (includeDev) {
-    deps.push(...Object.keys(json.devDependencies || {}));
+    deps.push(...Object.entries(json.devDependencies || {}));
   }
 
   return deps;
 }
 
-async function getPackageInfo(name) {
+async function getPackageInfo(name, version) {
   try {
-    let { stdout } = await execa`npm info ${name} --json`;
+    let { stdout } = await execa`npm info ${name}@${version} --json`;
 
     return JSON.parse(stdout);
   } catch (e) {
@@ -55,44 +57,48 @@ async function getPackageInfo(name) {
 }
 
 const SEEN_DEPS = new Set();
-const MAINTAINERS = new Map();
 const NOT_FOUND = new Set();
 const NOT_AUTHORIZED = new Set();
-
-function updateMaintainers(npmInfo) {
-  /**
-   * Array:
-   * username <email>
-   * username2 <email2>
-   */
-  let { maintainers } = npmInfo;
-
-  let users = maintainers.map((maintainer) => maintainer.split(" ")[0]);
-
-  users.map((user) => {
-    let count = MAINTAINERS.get(user) ?? 0;
-    MAINTAINERS.set(user, count + 1);
-  });
-}
+const ADDONS = {};
 
 const QUEUE = [];
 
+function updateAddons(info, latestVersionInfo) {
+  ADDONS[info.name] = {
+    currentVersion: info.version,
+    latestVersion: latestVersionInfo.version,
+    author: info.maintainers?.join(",") ?? info.author,
+    isV2Addon: info["ember-addon"]?.version === 2,
+    isV2AddonAvailable: latestVersionInfo["ember-addon"]?.version === 2,
+  };
+}
+
 async function traverseGraph() {
-  async function processDep(depName) {
+  async function processDep(depName, depVersion) {
     if (SEEN_DEPS.has(depName)) {
       return;
     }
 
-    console.debug(`Processed ${SEEN_DEPS.size}. Processing ${depName}`);
+    if (DEBUG) {
+      console.debug(`Processed ${SEEN_DEPS.size}. Processing ${depName}`);
+    }
 
-    let info = await getPackageInfo(depName);
+    spinner.text = `Inspecting ${depName}`;
+    let info = await getPackageInfo(depName, depVersion);
 
     if (!info) {
       SEEN_DEPS.add(depName);
       return;
     }
 
-    updateMaintainers(info);
+    if (!info.keywords?.includes("ember-addon")) {
+      SEEN_DEPS.add(depName);
+      return;
+    }
+
+    let latestInfo = await getPackageInfo(depName, "latest");
+
+    updateAddons(info, latestInfo);
 
     SEEN_DEPS.add(depName);
 
@@ -102,7 +108,9 @@ async function traverseGraph() {
   }
 
   async function prepareBatch(batch) {
-    await Promise.all(batch.map((depName) => processDep(depName)));
+    await Promise.all(
+      batch.map((depName) => processDep(depName[0], depName[1]))
+    );
   }
 
   while (QUEUE.length > 0) {
@@ -118,22 +126,28 @@ async function traverseGraph() {
 }
 
 let rootJson = await readPackageJson();
+
+console.info(`Gathering Ember Addon dependency info for '${rootJson.name}'`);
+const spinner = ora("Loading dependencies").start();
+
 let rootDeps = await getDeclaredDeps(rootJson, true);
 QUEUE.push(...rootDeps);
 await traverseGraph();
 
-let tableData = [...MAINTAINERS.entries()].map((entry) => ({
-  "NPM Name": entry[0],
-  "# Packages": entry[1],
+spinner.succeed("Successfully compiled addon info");
+spinner.stop();
+
+let tableData = Object.entries(ADDONS).map(([addonName, addonInfo]) => ({
+  "NPM Name": addonName,
+  // Author: addonInfo.author,
+  "Current version": addonInfo.currentVersion,
+  "Latest version": addonInfo.latestVersion,
+  "On V2 Addon": addonInfo.isV2Addon ? "✅" : "❌",
+  "V2 Addon available": addonInfo.isV2AddonAvailable ? "✅" : "❌",
 }));
 
-tableData.sort((a, b) => a["# Packages"] - b["# Packages"]);
-
-console.info(`
-  Number of maintainers: ${MAINTAINERS.size}
-  Number of packages: ${SEEN_DEPS.size}
-`);
-console.table(tableData.reverse());
+tableData.sort((a, b) => a["NPM Name"].localeCompare(b["NPM Name"]));
+console.table(tableData);
 
 if (NOT_FOUND.size > 0) {
   console.info("The following packages could not be found and were skipped");
@@ -142,7 +156,20 @@ if (NOT_FOUND.size > 0) {
 
 if (NOT_AUTHORIZED.size > 0) {
   console.info(
-    "The following packages required authorization and were skipped",
+    "The following packages required authorization and were skipped"
   );
   console.log(NOT_AUTHORIZED);
+}
+
+const upgradableAddons = Object.entries(ADDONS).filter(
+  ([_, info]) => info.isV2AddonAvailable !== info.isV2Addon
+);
+if (upgradableAddons.length) {
+  console.info(
+    "There are addons available that are on V1 but have a V2 version available 🎉"
+  );
+
+  upgradableAddons.forEach(([addonName, addonInfo]) => {
+    console.info(`- ${addonName} (latest: ${addonInfo.latestVersion})`);
+  });
 }

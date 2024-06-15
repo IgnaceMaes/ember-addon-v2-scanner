@@ -1,28 +1,30 @@
 {
-  "name": "dependency-maintainers",
+  "name": "ember-addon-v2-scanner",
+  "description": "A CLI tool to scan your Ember project for addons that have a V2 version available.",
   "type": "module",
-  "version": "1.0.4",
+  "version": "1.0.0",
   "main": "bin.js",
   "bin": {
-    "dependency-maintainers": "bin.js",
-    "depmain": "bin.js"
+    "ember-addon-v2-scanner": "bin.js"
   },
   "keywords": [
-    "maintainer",
-    "npm",
-    "package",
-    "node_modules",
-    "modules",
-    "node",
-    "dependencies",
-    "dependency"
+    "ember",
+    "addon",
+    "cli",
+    "v2"
   ],
-  "author": "NullVoxPopuli",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IgnaceMaes/ember-addon-v2-scanner.git"
+  },
+  "homepage": "https://github.com/IgnaceMaes/ember-addon-v2-scanner",
+  "author": "Ignace Maes (https://ignacemaes.com/)",
   "license": "GPL-3",
   "devDependencies": {
     "prettier": "^3.3.2"
   },
   "dependencies": {
-    "execa": "^9.2.0"
+    "execa": "^9.2.0",
+    "ora": "^8.0.1"
   }
 }
