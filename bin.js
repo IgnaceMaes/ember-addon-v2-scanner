@@ -58,6 +58,7 @@ async function getPackageInfo(name, version) {
 
 const SEEN_DEPS = new Set();
 const NOT_FOUND = new Set();
+const WORKSPACE_DEPS = new Set();
 const NOT_AUTHORIZED = new Set();
 const ADDONS = {};
 
@@ -76,6 +77,11 @@ function updateAddons(info, latestVersionInfo) {
 async function traverseGraph() {
   async function processDep(depName, depVersion) {
     if (SEEN_DEPS.has(depName)) {
+      return;
+    }
+    if (depVersion.startsWith("workspace:")) {
+      WORKSPACE_DEPS.add(depName);
+      SEEN_DEPS.add(depName);
       return;
     }
 
@@ -159,6 +165,13 @@ if (NOT_AUTHORIZED.size > 0) {
     "The following packages required authorization and were skipped"
   );
   console.log(NOT_AUTHORIZED);
+}
+
+if (WORKSPACE_DEPS.size > 0) {
+  console.info(
+    "The following packages were skipped as they are workspace local"
+  );
+  console.log(WORKSPACE_DEPS);
 }
 
 const upgradableAddons = Object.entries(ADDONS).filter(
