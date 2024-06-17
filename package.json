@@ -2,7 +2,7 @@
   "name": "ember-addon-v2-scanner",
   "description": "A CLI tool to scan your Ember project for addons that have a V2 version available.",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "bin.js",
   "bin": {
     "ember-addon-v2-scanner": "bin.js"
